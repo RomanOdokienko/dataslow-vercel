@@ -73,20 +73,28 @@
   const originalFetch = window.fetch;
 
   window.fetch = async function (input, init = {}) {
-    if (typeof input === 'string' && input.includes('/api/create-payment')) {
+    const url = input instanceof Request ? input.url : input;
+    if (typeof url === 'string' && url.includes('/api/create-payment')) {
       const context = window.DataSlow?.getContext?.() || {};
-      const newHeaders = {
-        ...(init.headers || {}),
-        'X-DS-Session-Id': context.session_id || '',
-        'X-DS-Utm-Source': context.utm_source || '',
-        'X-DS-Utm-Medium': context.utm_medium || '',
-        'X-DS-Utm-Campaign': context.utm_campaign || '',
-        'X-DS-Email': context.email || ''
-      };
-      init.headers = newHeaders;
-      console.log("🪄 Заголовки подставлены:", newHeaders);
+      const headers = new Headers(
+        (input instanceof Request ? input.headers : init.headers) || {}
+      );
+      headers.set('X-DS-Session-Id', context.session_id || '');
+      headers.set('X-DS-Utm-Source', context.utm_source || '');
+      headers.set('X-DS-Utm-Medium', context.utm_medium || '');
+      headers.set('X-DS-Utm-Campaign', context.utm_campaign || '');
+      headers.set('X-DS-Email', context.email || '');
+
+      if (input instanceof Request) {
+        input = new Request(input, { headers });
+        console.log('🪄 Заголовки подставлены в Request:', Object.fromEntries(headers.entries()));
+        return originalFetch(input);
+      } else {
+        init.headers = headers;
+        console.log('🪄 Заголовки подставлены:', Object.fromEntries(headers.entries()));
+      }
     }
 
     return originalFetch(input, init);
   };
-})(); 
+})();
