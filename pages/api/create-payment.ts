@@ -4,7 +4,18 @@ import crypto from 'crypto'
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   res.setHeader('Access-Control-Allow-Origin', '*')
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS')
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+  res.setHeader(
+    'Access-Control-Allow-Headers',
+    [
+      'Content-Type',
+      'Authorization',
+      'X-DS-Session-Id',
+      'X-DS-Utm-Source',
+      'X-DS-Utm-Medium',
+      'X-DS-Utm-Campaign',
+      'X-DS-Email',
+    ].join(', ')
+  )
 
   if (req.method === 'OPTIONS') {
     res.status(200).end()
@@ -23,6 +34,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     'x-ds-utm-source': utm_source = '',
     'x-ds-utm-medium': utm_medium = '',
     'x-ds-utm-campaign': utm_campaign = '',
+    'x-ds-email': email = '',
   } = req.headers
 
   const metadata = {
@@ -30,6 +42,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     utm_source,
     utm_medium,
     utm_campaign,
+    email,
   }
 
   try {

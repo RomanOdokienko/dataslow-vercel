@@ -38,6 +38,7 @@
       email,
       ...window.DataSlow.getContext()
     };
+    if (email) localStorage.setItem("email", email);
     try {
       await fetch("https://dataslow-vercel.vercel.app/api/track-email", {
         method: "POST",
@@ -62,7 +63,8 @@
       session_id: localStorage.getItem("session_id") || "",
       utm_source: localStorage.getItem("utm_source") || "",
       utm_medium: localStorage.getItem("utm_medium") || "",
-      utm_campaign: localStorage.getItem("utm_campaign") || ""
+      utm_campaign: localStorage.getItem("utm_campaign") || "",
+      email: localStorage.getItem("email") || ""
     }),
     track
   };
@@ -78,7 +80,8 @@
         'X-DS-Session-Id': context.session_id || '',
         'X-DS-Utm-Source': context.utm_source || '',
         'X-DS-Utm-Medium': context.utm_medium || '',
-        'X-DS-Utm-Campaign': context.utm_campaign || ''
+        'X-DS-Utm-Campaign': context.utm_campaign || '',
+        'X-DS-Email': context.email || ''
       };
       init.headers = newHeaders;
       console.log("🪄 Заголовки подставлены:", newHeaders);
