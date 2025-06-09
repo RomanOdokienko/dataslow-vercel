@@ -10,7 +10,7 @@
   "dependencies": {
     "next": "latest",
     "pg": "^8.11.3",
-    "raw-body": "^3.0.0",
+    "raw-body": "^2.5.2",
     "react": "latest",
     "react-dom": "latest"
   },
