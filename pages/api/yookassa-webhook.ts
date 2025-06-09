@@ -12,13 +12,15 @@ export const config = {
 }
 
 export default async function handler(req, res) {
-  if (req.method !== 'POST') return res.status(405).end()
+  if (req.method !== 'POST') {
+    return res.status(405).end()
+  }
 
   try {
     const raw = await getRawBody(req)
     const body = JSON.parse(raw.toString())
 
-    console.error('📩 Webhook payload:', JSON.stringify(body, null, 2))
+    console.log('📩 Webhook payload:', JSON.stringify(body, null, 2))
 
     const { amount, status, metadata } = body.object || {}
     const { value, currency } = amount || {}
