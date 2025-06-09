@@ -1,6 +1,3 @@
-export default async function handler(req, res) {
-  throw new Error("Webhook body: " + JSON.stringify(req.body));
-}
 // analytics.js — DataSlow v0.2 MVP Edition
 (function () {
   // --- Сбор UTM и session_id ---
