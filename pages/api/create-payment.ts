@@ -29,7 +29,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   const { amount } = req.body
 
-  console.log('↩️ Incoming headers:', JSON.stringify(req.headers, null, 2))
+  const sanitizedHeaders = { ...req.headers }
+  if ('authorization' in sanitizedHeaders) {
+    sanitizedHeaders.authorization = '[REDACTED]'
+  }
+  console.log('↩️ Incoming headers:', JSON.stringify(sanitizedHeaders, null, 2))
 
   const headers = req.headers as Record<string, string | string[] | undefined>
   const session_id = headers['x-ds-session-id']
