@@ -1,9 +1,8 @@
 export default async function handler(req, res) {
-  console.log("📩 Webhook payload:", JSON.stringify(req.body, null, 2));
-
-  // ... твоя логика
+  console.error("📩 Webhook payload:", JSON.stringify(req.body, null, 2));
+  // твоя логика
+  res.status(200).json({ ok: true });
 }
-
 // analytics.js — DataSlow v0.2 MVP Edition
 (function () {
   // --- Сбор UTM и session_id ---
