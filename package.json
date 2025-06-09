@@ -10,11 +10,13 @@
   "dependencies": {
     "next": "latest",
     "pg": "^8.11.3",
+    "raw-body": "^3.0.0",
     "react": "latest",
     "react-dom": "latest"
   },
   "devDependencies": {
     "@types/node": "^22.15.30",
+    "@types/raw-body": "^2.1.4",
     "@types/react": "^19.1.6",
     "typescript": "^5.8.3"
   }
