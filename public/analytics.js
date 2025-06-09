@@ -1,6 +1,5 @@
-// analytics.js — DataSlow v0.2 MVP Edition
+// analytics.js — DataSlow v0.3 (однострочный скрипт)
 (function () {
-  // --- Сбор UTM и session_id ---
   function getUTMs() {
     const params = new URLSearchParams(window.location.search);
     return {
@@ -20,12 +19,11 @@
   }
 
   function storeUTMs(utms) {
-    Object.entries(utms).forEach(([key, value]) => {
-      if (value) localStorage.setItem(key, value);
+    Object.entries(utms).forEach(([k, v]) => {
+      if (v) localStorage.setItem(k, v);
     });
   }
 
-  // --- Авто-трекинг email из формы ---
   function attachEmailTracking() {
     document.addEventListener("change", (e) => {
       const el = e.target;
@@ -35,13 +33,11 @@
     });
   }
 
-  // --- Отправка данных на backend ---
   async function track({ email }) {
     const payload = {
       email,
       ...window.DataSlow.getContext()
     };
-
     try {
       await fetch("https://dataslow-vercel.vercel.app/api/track-email", {
         method: "POST",
@@ -54,7 +50,6 @@
     }
   }
 
-  // --- Инициализация ---
   window.addEventListener("DOMContentLoaded", () => {
     const utms = getUTMs();
     storeUTMs(utms);
@@ -62,7 +57,6 @@
     attachEmailTracking();
   });
 
-  // --- Глобальный объект DataSlow ---
   window.DataSlow = {
     getContext: () => ({
       session_id: localStorage.getItem("session_id") || "",
