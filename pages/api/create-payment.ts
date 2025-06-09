@@ -2,12 +2,12 @@ import type { NextApiRequest, NextApiResponse } from 'next'
 import crypto from 'crypto'
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  // ✅ Добавляем CORS-заголовки
+  // ✅ CORS-заголовки
   res.setHeader('Access-Control-Allow-Origin', '*')
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS')
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization')
 
-  // ✅ Обработка preflight-запроса от браузера
+  // ✅ Preflight
   if (req.method === 'OPTIONS') {
     res.status(200).end()
     return
@@ -18,7 +18,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return
   }
 
-  const { amount, metadata } = req.body
+  const { amount, metadata = {}, email = null } = req.body
 
   try {
     const response = await fetch('https://api.yookassa.ru/v3/payments', {
@@ -39,7 +39,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         },
         capture: true,
         description: 'Оплата через DataSlow',
-        metadata,
+        metadata: {
+          ...metadata,
+          email,
+        },
       }),
     })
 
