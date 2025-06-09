@@ -1,4 +1,4 @@
-// analytics.js — Встраиваемый JS-трекер с магией одной строки
+// analytics.js — DataSlow v0.2 MVP Edition
 (function () {
   // --- Сбор UTM и session_id ---
   function getUTMs() {
@@ -25,11 +25,41 @@
     });
   }
 
+  // --- Авто-трекинг email из формы ---
+  function attachEmailTracking() {
+    document.addEventListener("change", (e) => {
+      const el = e.target;
+      if (el?.type === "email" && el?.value?.includes("@")) {
+        DataSlow.track({ email: el.value });
+      }
+    });
+  }
+
+  // --- Отправка данных на backend ---
+  async function track({ email }) {
+    const payload = {
+      email,
+      ...window.DataSlow.getContext()
+    };
+
+    try {
+      await fetch("https://dataslow-vercel.vercel.app/api/track-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      console.log("📤 Email tracked", payload);
+    } catch (err) {
+      console.warn("❌ Failed to track email", err);
+    }
+  }
+
   // --- Инициализация ---
   window.addEventListener("DOMContentLoaded", () => {
     const utms = getUTMs();
     storeUTMs(utms);
     getSessionId();
+    attachEmailTracking();
   });
 
   // --- Глобальный объект DataSlow ---
@@ -39,6 +69,7 @@
       utm_source: localStorage.getItem("utm_source") || "",
       utm_medium: localStorage.getItem("utm_medium") || "",
       utm_campaign: localStorage.getItem("utm_campaign") || ""
-    })
+    }),
+    track
   };
 })();
