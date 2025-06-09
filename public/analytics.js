@@ -1,7 +1,5 @@
 export default async function handler(req, res) {
-  console.error("📩 Webhook payload:", JSON.stringify(req.body, null, 2));
-  // твоя логика
-  res.status(200).json({ ok: true });
+  throw new Error("Webhook body: " + JSON.stringify(req.body));
 }
 // analytics.js — DataSlow v0.2 MVP Edition
 (function () {
