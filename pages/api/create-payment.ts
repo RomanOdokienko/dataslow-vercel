@@ -29,21 +29,21 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   const { amount } = req.body
 
-  const {
-    'x-ds-session-id': session_id = '',
-    'x-ds-utm-source': utm_source = '',
-    'x-ds-utm-medium': utm_medium = '',
-    'x-ds-utm-campaign': utm_campaign = '',
-    'x-ds-email': email = '',
-  } = req.headers
+  console.log('↩️ Incoming headers:', JSON.stringify(req.headers, null, 2))
 
-  const metadata = {
-    session_id,
-    utm_source,
-    utm_medium,
-    utm_campaign,
-    email,
-  }
+  const headers = req.headers as Record<string, string | string[] | undefined>
+  const session_id = headers['x-ds-session-id']
+  const utm_source = headers['x-ds-utm-source']
+  const utm_medium = headers['x-ds-utm-medium']
+  const utm_campaign = headers['x-ds-utm-campaign']
+  const email = headers['x-ds-email']
+
+  const metadata: Record<string, string> = {}
+  if (session_id) metadata.session_id = Array.isArray(session_id) ? session_id[0] : session_id
+  if (utm_source) metadata.utm_source = Array.isArray(utm_source) ? utm_source[0] : utm_source
+  if (utm_medium) metadata.utm_medium = Array.isArray(utm_medium) ? utm_medium[0] : utm_medium
+  if (utm_campaign) metadata.utm_campaign = Array.isArray(utm_campaign) ? utm_campaign[0] : utm_campaign
+  if (email) metadata.email = Array.isArray(email) ? email[0] : email
 
   try {
     const response = await fetch('https://api.yookassa.ru/v3/payments', {
