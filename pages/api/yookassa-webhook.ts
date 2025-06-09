@@ -7,29 +7,27 @@ const pool = new Pool({
 
 export const config = {
   api: {
-    bodyParser: false, // важно!
+    bodyParser: false,
   },
 }
 
 export default async function handler(req, res) {
-  if (req.method !== 'POST') {
-    return res.status(405).end()
-  }
+  if (req.method !== 'POST') return res.status(405).end()
 
   try {
     const raw = await getRawBody(req)
-    const payload = JSON.parse(raw.toString())
+    const body = JSON.parse(raw.toString())
 
-    console.error('📩 Webhook payload:', JSON.stringify(payload, null, 2))
+    console.error('📩 Webhook payload:', JSON.stringify(body, null, 2))
 
-    const { amount, status, metadata } = payload.object || {}
+    const { amount, status, metadata } = body.object || {}
     const { value, currency } = amount || {}
     const {
       session_id = null,
       utm_source = null,
       utm_medium = null,
       utm_campaign = null,
-      email = null,
+      email = null
     } = metadata || {}
 
     await pool.query(
@@ -44,7 +42,7 @@ export default async function handler(req, res) {
     console.log('✅ Payment inserted')
     res.status(200).json({ ok: true })
   } catch (err) {
-    console.error('❌ Webhook handler error:', err)
+    console.error('❌ Webhook error:', err)
     res.status(500).json({ error: 'Webhook failed' })
   }
 }
