@@ -66,4 +66,24 @@
     }),
     track
   };
-})();
+// --- Перехват fetch-запросов для /api/create-payment ---
+(function () {
+  const originalFetch = window.fetch;
+
+  window.fetch = async function (input, init = {}) {
+    if (typeof input === 'string' && input.includes('/api/create-payment')) {
+      const context = window.DataSlow?.getContext?.() || {};
+      const newHeaders = {
+        ...(init.headers || {}),
+        'X-DS-Session-Id': context.session_id || '',
+        'X-DS-Utm-Source': context.utm_source || '',
+        'X-DS-Utm-Medium': context.utm_medium || '',
+        'X-DS-Utm-Campaign': context.utm_campaign || ''
+      };
+      init.headers = newHeaders;
+      console.log("🪄 Заголовки подставлены:", newHeaders);
+    }
+
+    return originalFetch(input, init);
+  };
+})(); 
