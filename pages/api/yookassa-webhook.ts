@@ -1,5 +1,6 @@
 import { Pool } from 'pg'
 import getRawBody from 'raw-body'
+import crypto from 'crypto'
 
 function logPayment(prefix: string, body: any) {
   const info = {
@@ -28,7 +29,34 @@ export default async function handler(req, res) {
   let body: any = null
   try {
     const raw = await getRawBody(req)
-    body = JSON.parse(raw.toString())
+
+
+    const signatureHeader =
+      req.headers['x-yookassa-signature'] || req.headers['authorization']
+    const signature = Array.isArray(signatureHeader)
+      ? signatureHeader[0]
+      : signatureHeader
+
+    if (!signature) {
+      console.error('❌ Missing webhook signature')
+      return res.status(401).json({ error: 'Signature required' })
+    }
+
+    const match = /sha256=(.+)/i.exec(signature.toString())
+    const received = match ? match[1] : signature.toString()
+
+    const expected = crypto
+      .createHmac('sha256', process.env.YOOKASSA_SECRET || '')
+      .update(raw)
+      .digest('hex')
+
+    if (received !== expected) {
+      console.error('❌ Invalid webhook signature')
+      return res.status(401).json({ error: 'Invalid signature' })
+    }
+
+    const body = JSON.parse(raw.toString())
+
 
     logPayment('📩 Webhook payload:', body)
 
