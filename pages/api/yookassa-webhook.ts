@@ -1,5 +1,6 @@
 import { Pool } from 'pg'
 import getRawBody from 'raw-body'
+import crypto from 'crypto'
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
@@ -18,6 +19,31 @@ export default async function handler(req, res) {
 
   try {
     const raw = await getRawBody(req)
+
+    const signatureHeader =
+      req.headers['x-yookassa-signature'] || req.headers['authorization']
+    const signature = Array.isArray(signatureHeader)
+      ? signatureHeader[0]
+      : signatureHeader
+
+    if (!signature) {
+      console.error('❌ Missing webhook signature')
+      return res.status(401).json({ error: 'Signature required' })
+    }
+
+    const match = /sha256=(.+)/i.exec(signature.toString())
+    const received = match ? match[1] : signature.toString()
+
+    const expected = crypto
+      .createHmac('sha256', process.env.YOOKASSA_SECRET || '')
+      .update(raw)
+      .digest('hex')
+
+    if (received !== expected) {
+      console.error('❌ Invalid webhook signature')
+      return res.status(401).json({ error: 'Invalid signature' })
+    }
+
     const body = JSON.parse(raw.toString())
 
     console.log('📩 Webhook payload:', JSON.stringify(body, null, 2))
