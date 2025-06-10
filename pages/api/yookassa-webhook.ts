@@ -2,6 +2,15 @@ import { Pool } from 'pg'
 import getRawBody from 'raw-body'
 import crypto from 'crypto'
 
+function buildPem(base64Key: string): string {
+  const lines = base64Key.match(/.{1,64}/g) || []
+  return (
+    '-----BEGIN PUBLIC KEY-----\n' +
+    lines.join('\n') +
+    '\n-----END PUBLIC KEY-----\n'
+  )
+}
+
 function logPayment(prefix: string, body: any) {
   const info = {
     id: body?.object?.id,
@@ -59,7 +68,12 @@ export default async function handler(req, res) {
         raw.toString('utf-8'),
       ].join('\n')
 
-      const publicKey = `-----BEGIN PUBLIC KEY-----\nMIHowFAYHKoZIzj0CAQYJKyQDAwIIAEEBCCbHL4JXD+R2oqFVkhcz9pDNDCraTSRd4Y1LsV6BA4G9iJ6Y/PnbML2y+dDbR8cC6L6mgaiPYBzuIgcdQnf1WoUPhK\naijyy09bDE4G4bePKegW5OtqbTyBFX4YTgqLXAP==\n-----END PUBLIC KEY-----`
+      const keyB64 = process.env.YOOKASSA_PUBLIC_KEY || ''
+      if (!keyB64) {
+        console.error('❌ Missing YOOKASSA_PUBLIC_KEY environment variable')
+        return res.status(500).send('Server misconfiguration')
+      }
+      const publicKey = buildPem(keyB64)
 
       const verifier = crypto.createVerify('sha384')
       verifier.update(dataToVerify)
