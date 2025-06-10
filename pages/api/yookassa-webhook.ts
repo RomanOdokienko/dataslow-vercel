@@ -17,7 +17,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const raw = await getRawBody(req)
+    const raw = await getRawBody(req, { limit: '1mb' })
     const body = JSON.parse(raw.toString())
 
     console.log('📩 Webhook payload:', JSON.stringify(body, null, 2))
@@ -43,7 +43,10 @@ export default async function handler(req, res) {
 
     console.log('✅ Payment inserted')
     res.status(200).json({ ok: true })
-  } catch (err) {
+  } catch (err: any) {
+    if (err?.type === 'entity.too.large') {
+      return res.status(413).json({ error: 'Payload too large' })
+    }
     console.error('❌ Webhook error:', err)
     res.status(500).json({ error: 'Webhook failed' })
   }
