@@ -24,9 +24,9 @@ const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
 })
 
-// YooKassa signs webhooks even in the test environment, so we always verify
-// the signature.
-const verifySignature = true
+// YooKassa signs webhooks even in the test environment. Signature verification
+// can be disabled by setting VERIFY_SIGNATURE=false.
+const verifySignature = process.env.VERIFY_SIGNATURE !== 'false'
 
 export const config = {
   api: {
