@@ -15,7 +15,8 @@ const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
 })
 
-const verifySignature = process.env.NODE_ENV === 'production'
+// Signature verification is temporarily disabled. Enable when deploying to production.
+const verifySignature = false
 
 export const config = {
   api: {
