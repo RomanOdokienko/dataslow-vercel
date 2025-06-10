@@ -2,6 +2,15 @@ import { Pool } from 'pg'
 import getRawBody from 'raw-body'
 import crypto from 'crypto'
 
+function logPayment(prefix: string, body: any) {
+  const info = {
+    id: body?.object?.id,
+    status: body?.object?.status,
+    amount: body?.object?.amount?.value,
+  }
+  console.log(prefix, info)
+}
+
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
 })
@@ -17,8 +26,10 @@ export default async function handler(req, res) {
     return res.status(405).end()
   }
 
+  let body: any = null
   try {
     const raw = await getRawBody(req)
+
 
     const signatureHeader =
       req.headers['x-yookassa-signature'] || req.headers['authorization']
@@ -46,7 +57,8 @@ export default async function handler(req, res) {
 
     const body = JSON.parse(raw.toString())
 
-    console.log('📩 Webhook payload:', JSON.stringify(body, null, 2))
+
+    logPayment('📩 Webhook payload:', body)
 
     const { amount, status, metadata } = body.object || {}
     const { value, currency } = amount || {}
@@ -70,7 +82,7 @@ export default async function handler(req, res) {
     console.log('✅ Payment inserted')
     res.status(200).json({ ok: true })
   } catch (err) {
-    console.error('❌ Webhook error:', err)
+    logPayment('❌ Webhook error:', body)
     res.status(500).json({ error: 'Webhook failed' })
   }
 }
