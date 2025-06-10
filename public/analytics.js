@@ -40,7 +40,7 @@
     };
     if (email) localStorage.setItem("email", email);
     try {
-      await fetch("https://dataslow-vercel.vercel.app/api/track-email", {
+      await fetch("/api/track-email", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)
