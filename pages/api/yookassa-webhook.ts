@@ -15,7 +15,9 @@ const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
 })
 
-const verifySignature = process.env.NODE_ENV === 'production'
+// YooKassa signs webhooks even in the test environment, so we always verify
+// the signature.
+const verifySignature = true
 
 export const config = {
   api: {
@@ -30,6 +32,8 @@ export default async function handler(req, res) {
 
   let body: any = null
   try {
+
+    console.log('📬 Webhook headers:', req.headers)
 
     const raw = await getRawBody(req, { limit: '1mb' })
 
