@@ -59,6 +59,8 @@ export default async function handler(
   )
 
     const raw = await getRawBody(req, { limit: '1mb' })
+    const rawBody = raw.toString('utf-8')
+    console.log('📦 Webhook raw body:', rawBody)
 
     if (verifySignature) {
       const header = req.headers['signature'] || (req.headers as any)['Signature']
@@ -107,7 +109,7 @@ export default async function handler(
     }
 
 
-    body = JSON.parse(raw.toString())
+    body = JSON.parse(rawBody)
 
 
     logPayment('📩 Webhook payload:', body)
