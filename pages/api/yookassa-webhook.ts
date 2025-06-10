@@ -57,7 +57,7 @@ export default async function handler(req, res) {
     }
 
 
-    const body = JSON.parse(raw.toString())
+    body = JSON.parse(raw.toString())
 
 
     logPayment('📩 Webhook payload:', body)
@@ -90,8 +90,6 @@ export default async function handler(req, res) {
   }
   console.error('❌ Webhook error:', err)
   logPayment('❌ Webhook error:', body)
+  res.status(500).json({ error: 'Webhook failed' })
 }
-
-    res.status(500).json({ error: 'Webhook failed' })
-  }
 }
