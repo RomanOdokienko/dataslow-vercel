@@ -27,7 +27,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return
   }
 
-  const { amount } = req.body
+  const { amount } = req.body as { amount?: string }
+  if (typeof amount !== 'string' || !/^\d+(?:\.\d+)?$/.test(amount) || parseFloat(amount) <= 0) {
+    res.status(400).json({ message: 'Invalid amount' })
+    return
+  }
 
   const sanitizedHeaders = { ...req.headers }
   if ('authorization' in sanitizedHeaders) {

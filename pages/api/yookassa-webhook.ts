@@ -1,5 +1,15 @@
 import { Pool } from 'pg'
 import getRawBody from 'raw-body'
+import crypto from 'crypto'
+
+function logPayment(prefix: string, body: any) {
+  const info = {
+    id: body?.object?.id,
+    status: body?.object?.status,
+    amount: body?.object?.amount?.value,
+  }
+  console.log(prefix, info)
+}
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
@@ -16,11 +26,41 @@ export default async function handler(req, res) {
     return res.status(405).end()
   }
 
+  let body: any = null
   try {
+
     const raw = await getRawBody(req, { limit: '1mb' })
+
+
+    const signatureHeader =
+      req.headers['x-yookassa-signature'] || req.headers['authorization']
+    const signature = Array.isArray(signatureHeader)
+      ? signatureHeader[0]
+      : signatureHeader
+
+    if (!signature) {
+      console.error('❌ Missing webhook signature')
+      return res.status(401).json({ error: 'Signature required' })
+    }
+
+    const match = /sha256=(.+)/i.exec(signature.toString())
+    const received = match ? match[1] : signature.toString()
+
+    const expected = crypto
+      .createHmac('sha256', process.env.YOOKASSA_SECRET || '')
+      .update(raw)
+      .digest('hex')
+
+    if (received !== expected) {
+      console.error('❌ Invalid webhook signature')
+      return res.status(401).json({ error: 'Invalid signature' })
+    }
+
+
     const body = JSON.parse(raw.toString())
 
-    console.log('📩 Webhook payload:', JSON.stringify(body, null, 2))
+
+    logPayment('📩 Webhook payload:', body)
 
     const { amount, status, metadata } = body.object || {}
     const { value, currency } = amount || {}
@@ -43,11 +83,15 @@ export default async function handler(req, res) {
 
     console.log('✅ Payment inserted')
     res.status(200).json({ ok: true })
-  } catch (err: any) {
-    if (err?.type === 'entity.too.large') {
-      return res.status(413).json({ error: 'Payload too large' })
-    }
-    console.error('❌ Webhook error:', err)
+
+} catch (err: any) {
+  if (err?.type === 'entity.too.large') {
+    return res.status(413).json({ error: 'Payload too large' })
+  }
+  console.error('❌ Webhook error:', err)
+  logPayment('❌ Webhook error:', body)
+}
+
     res.status(500).json({ error: 'Webhook failed' })
   }
 }
