@@ -38,28 +38,38 @@ export default async function handler(req, res) {
     const raw = await getRawBody(req, { limit: '1mb' })
 
     if (verifySignature) {
-      const signatureHeader =
-        req.headers['x-yookassa-signature'] || req.headers['authorization']
-      const signature = Array.isArray(signatureHeader)
-        ? signatureHeader[0]
-        : signatureHeader
-
-      if (!signature) {
-        console.error('❌ Missing webhook signature')
-        return res.status(401).json({ error: 'Signature required' })
+      const header = req.headers['signature'] || (req.headers as any)['Signature']
+      const headerValue = Array.isArray(header) ? header[0] : header
+      if (!headerValue) {
+        console.error('❌ Missing Signature header')
+        return res.status(400).send('Missing Signature header')
       }
 
-      const match = /sha256=(.+)/i.exec(signature.toString())
-      const received = match ? match[1] : signature.toString()
+      const [version, timestamp, serial, signature] = headerValue.split(' ')
+      const idempotenceKey = req.headers['idempotence-key'] || ''
+      const httpMethod = req.method
+      const fullUrl = `https://${req.headers.host}${req.url}`
 
-      const expected = crypto
-        .createHmac('sha256', process.env.YOOKASSA_SECRET || '')
-        .update(raw)
-        .digest('hex')
+      const dataToVerify = [
+        timestamp,
+        httpMethod,
+        fullUrl,
+        '',
+        idempotenceKey,
+        raw.toString('utf-8'),
+      ].join('\n')
 
-      if (received !== expected) {
-        console.error('❌ Invalid webhook signature')
-        return res.status(401).json({ error: 'Invalid signature' })
+      const publicKey = `-----BEGIN PUBLIC KEY-----\nMIHowFAYHKoZIzj0CAQYJKyQDAwIIAEEBCCbHL4JXD+R2oqFVkhcz9pDNDCraTSRd4Y1LsV6BA4G9iJ6Y/PnbML2y+dDbR8cC6L6mgaiPYBzuIgcdQnf1WoUPhK\naijyy09bDE4G4bePKegW5OtqbTyBFX4YTgqLXAP==\n-----END PUBLIC KEY-----`
+
+      const verifier = crypto.createVerify('sha384')
+      verifier.update(dataToVerify)
+      verifier.end()
+
+      const isValid = verifier.verify(publicKey, Buffer.from(signature, 'base64'))
+
+      if (!isValid) {
+        console.error('❌ Invalid signature')
+        return res.status(400).send('Invalid signature')
       }
     } else {
       console.log('⚠️  Skipping YooKassa signature verification')
@@ -102,3 +112,4 @@ export default async function handler(req, res) {
   res.status(500).json({ error: 'Webhook failed' })
 }
 }
+
