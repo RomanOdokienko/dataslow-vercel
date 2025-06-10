@@ -1,3 +1,4 @@
+import type { NextApiRequest, NextApiResponse } from 'next'
 import { Pool } from 'pg'
 import getRawBody from 'raw-body'
 import crypto from 'crypto'
@@ -34,7 +35,10 @@ export const config = {
   },
 }
 
-export default async function handler(req, res) {
+export default async function handler(
+  req: NextApiRequest,
+  res: NextApiResponse
+) {
   if (req.method !== 'POST') {
     return res.status(405).end()
   }
