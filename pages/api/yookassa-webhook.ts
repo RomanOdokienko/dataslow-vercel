@@ -15,6 +15,8 @@ const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
 })
 
+const verifySignature = process.env.NODE_ENV === 'production'
+
 export const config = {
   api: {
     bodyParser: false,
@@ -31,29 +33,32 @@ export default async function handler(req, res) {
 
     const raw = await getRawBody(req, { limit: '1mb' })
 
+    if (verifySignature) {
+      const signatureHeader =
+        req.headers['x-yookassa-signature'] || req.headers['authorization']
+      const signature = Array.isArray(signatureHeader)
+        ? signatureHeader[0]
+        : signatureHeader
 
-    const signatureHeader =
-      req.headers['x-yookassa-signature'] || req.headers['authorization']
-    const signature = Array.isArray(signatureHeader)
-      ? signatureHeader[0]
-      : signatureHeader
+      if (!signature) {
+        console.error('❌ Missing webhook signature')
+        return res.status(401).json({ error: 'Signature required' })
+      }
 
-    if (!signature) {
-      console.error('❌ Missing webhook signature')
-      return res.status(401).json({ error: 'Signature required' })
-    }
+      const match = /sha256=(.+)/i.exec(signature.toString())
+      const received = match ? match[1] : signature.toString()
 
-    const match = /sha256=(.+)/i.exec(signature.toString())
-    const received = match ? match[1] : signature.toString()
+      const expected = crypto
+        .createHmac('sha256', process.env.YOOKASSA_SECRET || '')
+        .update(raw)
+        .digest('hex')
 
-    const expected = crypto
-      .createHmac('sha256', process.env.YOOKASSA_SECRET || '')
-      .update(raw)
-      .digest('hex')
-
-    if (received !== expected) {
-      console.error('❌ Invalid webhook signature')
-      return res.status(401).json({ error: 'Invalid signature' })
+      if (received !== expected) {
+        console.error('❌ Invalid webhook signature')
+        return res.status(401).json({ error: 'Invalid signature' })
+      }
+    } else {
+      console.log('⚠️  Skipping YooKassa signature verification')
     }
 
 
