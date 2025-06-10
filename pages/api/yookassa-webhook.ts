@@ -42,7 +42,17 @@ export default async function handler(req, res) {
   let body: any = null
   try {
 
-    console.log('📬 Webhook headers:', req.headers)
+  const sanitizedHeaders = { ...req.headers }
+  if ('authorization' in sanitizedHeaders) {
+    sanitizedHeaders.authorization = '[REDACTED]'
+  }
+  if ('x-vercel-oidc-token' in sanitizedHeaders) {
+    sanitizedHeaders['x-vercel-oidc-token'] = '[REDACTED]'
+  }
+  console.log(
+    '📬 Webhook headers:',
+    JSON.stringify(sanitizedHeaders, null, 2)
+  )
 
     const raw = await getRawBody(req, { limit: '1mb' })
 
