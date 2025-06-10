@@ -1,0 +1,6 @@
+{
+  "extends": "next/tsconfig.json",
+  "compilerOptions": {
+    "strict": true
+  }
+}
