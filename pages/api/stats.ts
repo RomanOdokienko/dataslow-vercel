@@ -30,42 +30,52 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   const filter = String(date_filter || '').toLowerCase()
 
-  let dateWhere = `TRUE`
-  let groupByExpr = ''
+  let visitsDateWhere = `TRUE`
+  let paymentsDateWhere = `TRUE`
+  let visitsGroupBy = ''
+  let paymentsGroupBy = ''
   let label = ''
   let orderBy = ''
 
   if (hourly === 'true') {
     let targetDay = 'CURRENT_DATE'
     if (filter === 'вчера' || filter === 'yesterday') targetDay = `CURRENT_DATE - INTERVAL '1 day'`
-    dateWhere = `DATE(created_at) = ${targetDay}`
-    groupByExpr = `DATE_TRUNC('hour', created_at)`
+    visitsDateWhere = `DATE(visited_at) = ${targetDay}`
+    paymentsDateWhere = `DATE(created_at) = ${targetDay}`
+    visitsGroupBy = `DATE_TRUNC('hour', visited_at)`
+    paymentsGroupBy = `DATE_TRUNC('hour', created_at)`
     label = 'hour'
     orderBy = `ORDER BY ${label}`
   } else if (daily === 'true') {
     switch (filter) {
       case 'сегодня':
       case 'today':
-        dateWhere = `DATE(created_at) = CURRENT_DATE`
+        visitsDateWhere = `DATE(visited_at) = CURRENT_DATE`
+        paymentsDateWhere = `DATE(created_at) = CURRENT_DATE`
         break
       case 'вчера':
       case 'yesterday':
-        dateWhere = `DATE(created_at) = CURRENT_DATE - INTERVAL '1 day'`
+        visitsDateWhere = `DATE(visited_at) = CURRENT_DATE - INTERVAL '1 day'`
+        paymentsDateWhere = `DATE(created_at) = CURRENT_DATE - INTERVAL '1 day'`
         break
       case 'последние 7 дней':
       case 'last_7_days':
-        dateWhere = `created_at >= CURRENT_DATE - INTERVAL '6 days'`
+        visitsDateWhere = `visited_at >= CURRENT_DATE - INTERVAL '6 days'`
+        paymentsDateWhere = `created_at >= CURRENT_DATE - INTERVAL '6 days'`
         break
       case 'последние 30 дней':
       case 'last_30_days':
-        dateWhere = `created_at >= CURRENT_DATE - INTERVAL '29 days'`
+        visitsDateWhere = `visited_at >= CURRENT_DATE - INTERVAL '29 days'`
+        paymentsDateWhere = `created_at >= CURRENT_DATE - INTERVAL '29 days'`
         break
       case 'с начала месяца':
       case 'this_month':
-        dateWhere = `created_at >= date_trunc('month', CURRENT_DATE)`
+        visitsDateWhere = `visited_at >= date_trunc('month', CURRENT_DATE)`
+        paymentsDateWhere = `created_at >= date_trunc('month', CURRENT_DATE)`
         break
     }
-    groupByExpr = `DATE(created_at)`
+    visitsGroupBy = `DATE(visited_at)`
+    paymentsGroupBy = `DATE(created_at)`
     label = 'date'
     orderBy = `ORDER BY ${label}`
   }
@@ -73,19 +83,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   try {
     const query = `
       WITH visitors_union AS (
-        SELECT ${groupByExpr} AS period, session_id FROM visits WHERE ${dateWhere}
+        SELECT ${visitsGroupBy} AS period, session_id FROM visits WHERE ${visitsDateWhere}
         UNION
-        SELECT ${groupByExpr} AS period, session_id FROM "DataSlow payments" WHERE status = 'succeeded' AND ${dateWhere}
+        SELECT ${paymentsGroupBy} AS period, session_id FROM "DataSlow payments" WHERE status = 'succeeded' AND ${paymentsDateWhere}
       ),
       agg_visitors AS (
         SELECT period, COUNT(DISTINCT session_id) AS visitors FROM visitors_union GROUP BY period
       ),
       payments_data AS (
-        SELECT ${groupByExpr} AS period,
+        SELECT ${paymentsGroupBy} AS period,
                COUNT(*) AS payments_count,
                SUM(amount)::numeric(10,2) AS revenue
         FROM "DataSlow payments"
-        WHERE status = 'succeeded' AND ${dateWhere}
+        WHERE status = 'succeeded' AND ${paymentsDateWhere}
         GROUP BY period
       )
       SELECT
@@ -100,7 +110,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const { rows } = await pool.query(query)
 
-    const visitsCountCheckQuery = `SELECT COUNT(*) AS visits_count_check FROM visits WHERE ${dateWhere}`
+    const visitsCountCheckQuery = `SELECT COUNT(*) AS visits_count_check FROM visits WHERE ${visitsDateWhere}`
     const { rows: visitsCheckRows } = await pool.query(visitsCountCheckQuery)
     const visits_count_check = visitsCheckRows[0]?.visits_count_check || 0
 
