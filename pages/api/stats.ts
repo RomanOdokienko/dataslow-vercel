@@ -25,7 +25,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   if (hourly === 'true') {
     let targetDay = 'CURRENT_DATE'
-    if (filter === 'вчера') targetDay = `CURRENT_DATE - INTERVAL '1 day'`
+    if (filter === 'вчера' || filter === 'yesterday') targetDay = `CURRENT_DATE - INTERVAL '1 day'`
     dateWhere = `DATE(created_at) = ${targetDay}`
     groupByExpr = `DATE_TRUNC('hour', created_at)`
     label = 'hour'
@@ -33,18 +33,23 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   } else if (daily === 'true') {
     switch (filter) {
       case 'сегодня':
+      case 'today':
         dateWhere = `DATE(created_at) = CURRENT_DATE`
         break
       case 'вчера':
+      case 'yesterday':
         dateWhere = `DATE(created_at) = CURRENT_DATE - INTERVAL '1 day'`
         break
       case 'последние 7 дней':
+      case 'last_7_days':
         dateWhere = `created_at >= CURRENT_DATE - INTERVAL '6 days'`
         break
       case 'последние 30 дней':
+      case 'last_30_days':
         dateWhere = `created_at >= CURRENT_DATE - INTERVAL '29 days'`
         break
       case 'с начала месяца':
+      case 'this_month':
         dateWhere = `created_at >= date_trunc('month', CURRENT_DATE)`
         break
     }
@@ -72,7 +77,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         GROUP BY period
       )
       SELECT
-        period AS ${label},
+        COALESCE(agg_visitors.period, payments_data.period) AS ${label},
         COALESCE(agg_visitors.visitors, 0) AS visitors,
         COALESCE(payments_data.payments_count, 0) AS payments_count,
         COALESCE(payments_data.revenue, 0) AS revenue
@@ -83,13 +88,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const { rows } = await pool.query(query)
 
-    // Логируем количество визитов, но не включаем в ответ
     const visitsCountCheckQuery = `SELECT COUNT(*) AS visits_count_check FROM visits WHERE ${dateWhere}`
     const { rows: visitsCheckRows } = await pool.query(visitsCountCheckQuery)
     const visits_count_check = visitsCheckRows[0]?.visits_count_check || 0
-    console.log('✅ visits_count_check:', visits_count_check)
 
-    res.status(200).json(rows)
+    res.status(200).json({ data: rows, visits_count_check })
   } catch (err) {
     console.error('❌ Stats error:', err)
     res.status(500).json({ error: 'Internal server error' })
