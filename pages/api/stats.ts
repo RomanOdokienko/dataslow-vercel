@@ -15,17 +15,29 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return
   }
 
-  let { daily, hourly, date_filter } = req.query
+  const { daily, hourly, date_filter } = req.query
   const dailyFlag = daily === 'true'
   const hourlyFlag = hourly === 'true'
 
   if (!dailyFlag && !hourlyFlag) {
-    if (daily === undefined && hourly === undefined) {
-      daily = 'true'
-    } else {
-      res.status(400).json({ error: 'Invalid parameters' })
-      return
+    try {
+      const utmQuery = `
+        SELECT
+          COALESCE(utm_source, '') AS utm_source,
+          COUNT(*) AS payments_count,
+          SUM(amount)::numeric(10,2) AS revenue
+        FROM "DataSlow payments"
+        WHERE status = 'succeeded'
+        GROUP BY COALESCE(utm_source, '')
+        ORDER BY revenue DESC
+      `
+      const { rows } = await pool.query(utmQuery)
+      res.status(200).json({ data: rows })
+    } catch (err) {
+      console.error('❌ Stats UTM error:', err)
+      res.status(500).json({ error: 'Internal server error' })
     }
+    return
   }
 
   const filter = String(date_filter || '').toLowerCase()
