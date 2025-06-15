@@ -19,46 +19,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const dailyFlag = daily === 'true'
   const hourlyFlag = hourly === 'true'
 
-  if (!dailyFlag && !hourlyFlag) {
-    try {
-      const utmQuery = `
-        SELECT
-          COALESCE(utm_source, '') AS utm_source,
-          COUNT(*) AS payments_count,
-          SUM(amount)::numeric(10,2) AS revenue
-        FROM "DataSlow payments"
-        WHERE status = 'succeeded'
-        GROUP BY COALESCE(utm_source, '')
-        ORDER BY revenue DESC
-      `
-      const { rows } = await pool.query(utmQuery)
-      res.status(200).json({ data: rows })
-    } catch (err) {
-      console.error('❌ Stats UTM error:', err)
-      res.status(500).json({ error: 'Internal server error' })
-    }
-    return
-  }
-
   const filter = String(date_filter || '').toLowerCase()
 
   let visitsDateWhere = `TRUE`
   let paymentsDateWhere = `TRUE`
-  let visitsGroupBy = ''
-  let paymentsGroupBy = ''
-  let label = ''
-  let orderBy = ''
 
-  if (hourly === 'true') {
+  if (hourlyFlag) {
     let targetDay = 'CURRENT_DATE'
-    if (filter === 'вчера' || filter === 'yesterday') targetDay = `CURRENT_DATE - INTERVAL '1 day'`
+    if (filter === 'вчера' || filter === 'yesterday')
+      targetDay = `CURRENT_DATE - INTERVAL '1 day'`
     visitsDateWhere = `DATE(visited_at) = ${targetDay}`
     paymentsDateWhere = `DATE(created_at) = ${targetDay}`
-    visitsGroupBy = `DATE_TRUNC('hour', visited_at)`
-    paymentsGroupBy = `DATE_TRUNC('hour', created_at)`
-    label = 'hour'
-    orderBy = `ORDER BY ${label}`
-  } else if (daily === 'true') {
+  } else {
     switch (filter) {
       case 'сегодня':
       case 'today':
@@ -86,6 +58,40 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         paymentsDateWhere = `created_at >= date_trunc('month', CURRENT_DATE)`
         break
     }
+  }
+
+  if (!dailyFlag && !hourlyFlag) {
+    try {
+      const utmQuery = `
+        SELECT
+          COALESCE(utm_source, '') AS utm_source,
+          COUNT(*) AS payments_count,
+          SUM(amount)::numeric(10,2) AS revenue
+        FROM "DataSlow payments"
+        WHERE status = 'succeeded' AND ${paymentsDateWhere}
+        GROUP BY COALESCE(utm_source, '')
+        ORDER BY revenue DESC
+      `
+      const { rows } = await pool.query(utmQuery)
+      res.status(200).json({ data: rows })
+    } catch (err) {
+      console.error('❌ Stats UTM error:', err)
+      res.status(500).json({ error: 'Internal server error' })
+    }
+    return
+  }
+
+  let visitsGroupBy = ''
+  let paymentsGroupBy = ''
+  let label = ''
+  let orderBy = ''
+
+  if (hourlyFlag) {
+    visitsGroupBy = `DATE_TRUNC('hour', visited_at)`
+    paymentsGroupBy = `DATE_TRUNC('hour', created_at)`
+    label = 'hour'
+    orderBy = `ORDER BY ${label}`
+  } else if (dailyFlag) {
     visitsGroupBy = `DATE(visited_at)`
     paymentsGroupBy = `DATE(created_at)`
     label = 'date'
