@@ -15,7 +15,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return
   }
 
-  const { daily, hourly, date_filter } = req.query
+  let { daily, hourly, date_filter } = req.query
+  const dailyFlag = daily === 'true'
+  const hourlyFlag = hourly === 'true'
+
+  if (!dailyFlag && !hourlyFlag) {
+    if (daily === undefined && hourly === undefined) {
+      daily = 'true'
+    } else {
+      res.status(400).json({ error: 'Invalid parameters' })
+      return
+    }
+  }
+
   const filter = String(date_filter || '').toLowerCase()
 
   let dateWhere = `TRUE`
