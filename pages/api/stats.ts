@@ -68,7 +68,12 @@ export default async function handler(
         ORDER BY total_amount DESC;
       `
 
+    console.log('📦 Executing SQL:\n', query)
+
     const { rows } = await pool.query(query)
+
+    console.log('📤 First result row:', rows?.[0])
+
     res.status(200).json(rows)
   } catch (err) {
     console.error('❌ Stats error:', err)
