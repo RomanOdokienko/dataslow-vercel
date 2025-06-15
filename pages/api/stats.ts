@@ -110,11 +110,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const { rows } = await pool.query(query)
 
+    const visits_count = rows.length
+
     const visitsCountCheckQuery = `SELECT COUNT(*) AS visits_count_check FROM visits WHERE ${visitsDateWhere}`
     const { rows: visitsCheckRows } = await pool.query(visitsCountCheckQuery)
     const visits_count_check = visitsCheckRows[0]?.visits_count_check || 0
 
-    res.status(200).json({ data: rows, visits_count_check })
+    res.status(200).json({ data: rows, visits_count, visits_count_check })
   } catch (err) {
     console.error('❌ Stats error:', err)
     res.status(500).json({ error: 'Internal server error' })
