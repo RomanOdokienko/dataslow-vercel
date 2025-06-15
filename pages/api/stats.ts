@@ -116,7 +116,28 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const { rows: visitsCheckRows } = await pool.query(visitsCountCheckQuery)
     const visits_count_check = visitsCheckRows[0]?.visits_count_check || 0
 
-    res.status(200).json({ data: rows, visits_count, visits_count_check })
+    const totalVisitorsQuery = `SELECT COUNT(DISTINCT session_id) AS total_visitors FROM visits WHERE ${visitsDateWhere}`
+    const { rows: totalVisitorsRows } = await pool.query(totalVisitorsQuery)
+    const total_visitors = totalVisitorsRows[0]?.total_visitors || 0
+
+    const totalPaymentsQuery = `
+      SELECT COUNT(*) AS total_payments,
+             COALESCE(SUM(amount), 0)::numeric(10,2) AS total_revenue
+      FROM "DataSlow payments"
+      WHERE status = 'succeeded' AND ${paymentsDateWhere}
+    `
+    const { rows: totalPaymentsRows } = await pool.query(totalPaymentsQuery)
+    const total_payments = totalPaymentsRows[0]?.total_payments || 0
+    const total_revenue = totalPaymentsRows[0]?.total_revenue || 0
+
+    res.status(200).json({
+      total_visitors,
+      total_payments,
+      total_revenue,
+      data: rows,
+      visits_count,
+      visits_count_check,
+    })
   } catch (err) {
     console.error('❌ Stats error:', err)
     res.status(500).json({ error: 'Internal server error' })
