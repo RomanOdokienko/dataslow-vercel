@@ -83,12 +83,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const { rows } = await pool.query(query)
 
-    // Добавим дополнительное поле для проверки количества визитов
+    // Логируем количество визитов, но не включаем в ответ
     const visitsCountCheckQuery = `SELECT COUNT(*) AS visits_count_check FROM visits WHERE ${dateWhere}`
     const { rows: visitsCheckRows } = await pool.query(visitsCountCheckQuery)
     const visits_count_check = visitsCheckRows[0]?.visits_count_check || 0
+    console.log('✅ visits_count_check:', visits_count_check)
 
-    res.status(200).json({ data: rows, visits_count_check })
+    res.status(200).json(rows)
   } catch (err) {
     console.error('❌ Stats error:', err)
     res.status(500).json({ error: 'Internal server error' })
