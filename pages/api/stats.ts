@@ -18,85 +18,77 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const { daily, hourly, date_filter } = req.query
   const filter = String(date_filter || '').toLowerCase()
 
-  let where = status = 'succeeded'
-  let groupBy = ''
-  let select = ''
+  let dateWhere = `TRUE`
+  let groupByExpr = ''
+  let label = ''
   let orderBy = ''
 
   if (hourly === 'true') {
     let targetDay = 'CURRENT_DATE'
-    if (filter === 'вчера') targetDay = CURRENT_DATE - INTERVAL '1 day'
-
-    where +=  AND DATE(created_at) = ${targetDay}
-    groupBy = DATE_TRUNC('hour', created_at)
-    select = 
-      ${groupBy} AS hour,
-      COUNT(*) AS count,
-      SUM(amount)::numeric(10,2) AS total_amount
-    
-    orderBy = ORDER BY hour
-  }
-
-  else if (daily === 'true') {
-    // date range
-    let rangeCondition = ''
-
+    if (filter === 'вчера') targetDay = `CURRENT_DATE - INTERVAL '1 day'`
+    dateWhere = `DATE(created_at) = ${targetDay}`
+    groupByExpr = `DATE_TRUNC('hour', created_at)`
+    label = 'hour'
+    orderBy = `ORDER BY ${label}`
+  } else if (daily === 'true') {
     switch (filter) {
       case 'сегодня':
-        rangeCondition = DATE(created_at) = CURRENT_DATE
+        dateWhere = `DATE(created_at) = CURRENT_DATE`
         break
       case 'вчера':
-        rangeCondition = DATE(created_at) = CURRENT_DATE - INTERVAL '1 day'
+        dateWhere = `DATE(created_at) = CURRENT_DATE - INTERVAL '1 day'`
         break
       case 'последние 7 дней':
-        rangeCondition = created_at >= CURRENT_DATE - INTERVAL '6 days'
+        dateWhere = `created_at >= CURRENT_DATE - INTERVAL '6 days'`
         break
       case 'последние 30 дней':
-        rangeCondition = created_at >= CURRENT_DATE - INTERVAL '29 days'
+        dateWhere = `created_at >= CURRENT_DATE - INTERVAL '29 days'`
         break
       case 'с начала месяца':
-        rangeCondition = created_at >= date_trunc('month', CURRENT_DATE)
-        break
-      default:
-        rangeCondition = 'TRUE'
+        dateWhere = `created_at >= date_trunc('month', CURRENT_DATE)`
         break
     }
-
-    where +=  AND ${rangeCondition}
-    groupBy = DATE(created_at), utm_source, utm_campaign
-    select = 
-      DATE(created_at) AS date,
-      utm_source,
-      utm_campaign,
-      COUNT(*) AS count,
-      SUM(amount)::numeric(10,2) AS total_amount
-    
-    orderBy = ORDER BY date ASC
-  }
-
-  else {
-    // default total by utm_source and utm_campaign
-    select = 
-      utm_source,
-      utm_campaign,
-      COUNT(*) AS count,
-      SUM(amount)::numeric(10,2) AS total_amount
-    
-    groupBy = utm_source, utm_campaign
-    orderBy = ORDER BY total_amount DESC
+    groupByExpr = `DATE(created_at)`
+    label = 'date'
+    orderBy = `ORDER BY ${label}`
   }
 
   try {
-    const query = 
-      SELECT ${select}
-      FROM "DataSlow payments"
-      WHERE ${where}
-      GROUP BY ${groupBy}
+    const query = `
+      WITH visitors_union AS (
+        SELECT ${groupByExpr} AS period, session_id FROM visits WHERE ${dateWhere}
+        UNION
+        SELECT ${groupByExpr} AS period, session_id FROM "DataSlow payments" WHERE status = 'succeeded' AND ${dateWhere}
+      ),
+      agg_visitors AS (
+        SELECT period, COUNT(DISTINCT session_id) AS visitors FROM visitors_union GROUP BY period
+      ),
+      payments_data AS (
+        SELECT ${groupByExpr} AS period,
+               COUNT(*) AS payments_count,
+               SUM(amount)::numeric(10,2) AS revenue
+        FROM "DataSlow payments"
+        WHERE status = 'succeeded' AND ${dateWhere}
+        GROUP BY period
+      )
+      SELECT
+        period AS ${label},
+        COALESCE(agg_visitors.visitors, 0) AS visitors,
+        COALESCE(payments_data.payments_count, 0) AS payments_count,
+        COALESCE(payments_data.revenue, 0) AS revenue
+      FROM agg_visitors
+      FULL OUTER JOIN payments_data ON agg_visitors.period = payments_data.period
       ${orderBy}
-    
+    `
 
     const { rows } = await pool.query(query)
-    res.status(200).json(rows)
+
+    // Добавим дополнительное поле для проверки количества визитов
+    const visitsCountCheckQuery = `SELECT COUNT(*) AS visits_count_check FROM visits WHERE ${dateWhere}`
+    const { rows: visitsCheckRows } = await pool.query(visitsCountCheckQuery)
+    const visits_count_check = visitsCheckRows[0]?.visits_count_check || 0
+
+    res.status(200).json({ data: rows, visits_count_check })
   } catch (err) {
     console.error('❌ Stats error:', err)
     res.status(500).json({ error: 'Internal server error' })
