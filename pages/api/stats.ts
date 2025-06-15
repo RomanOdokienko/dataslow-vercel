@@ -12,29 +12,41 @@ export default async function handler(
   res.setHeader("Access-Control-Allow-Origin", "*")
   res.setHeader("Access-Control-Allow-Methods", "GET")
   res.setHeader("Access-Control-Allow-Headers", "Content-Type")
+
   if (req.method !== 'GET') {
     res.status(405).end()
     return
   }
 
   try {
-    const { rows } = await pool.query(
+    const daily = req.query.daily === 'true'
+
+    const baseQuery = daily
+      ? `
+        SELECT
+          DATE(created_at) AS date,
+          utm_source,
+          utm_campaign,
+          COUNT(*) AS count,
+          SUM(amount) AS total_amount
+        FROM "DataSlow payments"
+        WHERE status = 'succeeded'
+        GROUP BY date, utm_source, utm_campaign
+        ORDER BY date ASC;
       `
-      SELECT
-        utm_source,
-        utm_campaign,
-        COUNT(*) AS count,
-        SUM(amount) AS total_amount
-      FROM
-        "DataSlow payments"
-      WHERE
-        status = 'succeeded'
-      GROUP BY
-        utm_source, utm_campaign
-      ORDER BY
-        total_amount DESC;
+      : `
+        SELECT
+          utm_source,
+          utm_campaign,
+          COUNT(*) AS count,
+          SUM(amount) AS total_amount
+        FROM "DataSlow payments"
+        WHERE status = 'succeeded'
+        GROUP BY utm_source, utm_campaign
+        ORDER BY total_amount DESC;
       `
-    )
+
+    const { rows } = await pool.query(baseQuery)
     res.status(200).json(rows)
   } catch (err) {
     console.error('❌ Stats error:', err)
