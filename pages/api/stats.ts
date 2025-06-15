@@ -97,14 +97,25 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         FROM "DataSlow payments"
         WHERE status = 'succeeded' AND ${paymentsDateWhere}
         GROUP BY period
+      ),
+      session_duration_data AS (
+        SELECT ${visitsGroupBy} AS period,
+               AVG(session_duration_seconds)::numeric(10,2) AS avg_session_duration
+        FROM visits
+        WHERE ${visitsDateWhere}
+          AND session_duration_seconds IS NOT NULL
+          AND session_duration_seconds > 0
+        GROUP BY period
       )
       SELECT
-        COALESCE(agg_visitors.period, payments_data.period) AS ${label},
+        COALESCE(agg_visitors.period, payments_data.period, session_duration_data.period) AS ${label},
         COALESCE(agg_visitors.visitors, 0) AS visitors,
         COALESCE(payments_data.payments_count, 0) AS payments_count,
-        COALESCE(payments_data.revenue, 0) AS revenue
+        COALESCE(payments_data.revenue, 0) AS revenue,
+        COALESCE(session_duration_data.avg_session_duration, 0) AS avg_session_duration
       FROM agg_visitors
       FULL OUTER JOIN payments_data ON agg_visitors.period = payments_data.period
+      FULL OUTER JOIN session_duration_data ON COALESCE(agg_visitors.period, payments_data.period) = session_duration_data.period
       ${orderBy}
     `
 
@@ -130,10 +141,21 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const total_payments = totalPaymentsRows[0]?.total_payments || 0
     const total_revenue = totalPaymentsRows[0]?.total_revenue || 0
 
+    const avgSessionDurationQuery = `
+      SELECT AVG(session_duration_seconds)::numeric(10,2) AS avg_session_duration
+      FROM visits
+      WHERE ${visitsDateWhere}
+        AND session_duration_seconds IS NOT NULL
+        AND session_duration_seconds > 0
+    `
+    const { rows: avgSessionRows } = await pool.query(avgSessionDurationQuery)
+    const avg_session_duration = avgSessionRows[0]?.avg_session_duration || 0
+
     res.status(200).json({
       total_visitors,
       total_payments,
       total_revenue,
+      avg_session_duration,
       data: rows,
       visits_count,
       visits_count_check,
